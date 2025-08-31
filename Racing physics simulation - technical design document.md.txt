@@ -1,0 +1,1036 @@
+Racing Physics Simulation - Technical Design Document
+M2 MacBook Optimized Educational Racing Simulator
+Executive Summary
+A 3D racing physics visualization application designed to teach racing dynamics through interactive simulation of a Mazda RX-8 and Formula 1 car. The application demonstrates weight transfer, tire forces, and racing techniques across three corner types with multiple racing lines and braking styles.
+
+1. Technical Requirements
+1.1 Platform Specifications
+	•	Target Hardware: Apple M2 MacBook (8-core CPU, 10-core GPU)
+	•	Development Framework: Web-based (Three.js + WebGL 2.0)
+	•	Performance Target: 60 FPS at 2560x1600 resolution
+	•	Browser Support: Safari 16+, Chrome 110+, Firefox 110+
+	•	Memory Budget: Maximum 4GB RAM usage
+	•	Storage: ~100MB for assets and code
+1.2 Core Technologies
+// Required Dependencies
+{
+  "three": "^0.160.0",          // 3D rendering
+  "cannon-es": "^0.20.0",       // Physics engine
+  "dat.gui": "^0.7.9",          // Control interface
+  "stats.js": "^0.17.0"         // Performance monitoring
+}
+1.3 Performance Optimizations for M2
+	•	Use Metal-optimized WebGL2 rendering path
+	•	Implement frustum culling for off-screen objects
+	•	LOD system for track geometry (3 levels)
+	•	Instanced rendering for force vectors
+	•	Fixed 60Hz physics timestep with interpolation
+
+2. Application Architecture
+2.1 Core Modules
+// Module Structure
+RacingSimulation/
+├── Core/
+│   ├── PhysicsEngine.js      // Fixed timestep physics
+│   ├── Renderer.js           // Three.js rendering
+│   └── InputManager.js       // User controls
+├── Physics/
+│   ├── VehicleDynamics.js    // Core vehicle physics
+│   ├── TireModel.js          // Pacejka tire physics
+│   ├── WeightTransfer.js     // Load transfer calculations
+│   └── Aerodynamics.js       // Downforce/drag
+├── Vehicles/
+│   ├── RX8Config.js          // RX-8 parameters
+│   └── F1Config.js           // F1 parameters
+├── Track/
+│   ├── CornerGenerator.js    // 3 corner types
+│   └── RacingLine.js         // Line calculations
+├── Visualization/
+│   ├── ForceVectors.js       // 3D force arrows
+│   ├── WeightDisplay.js      // Weight distribution
+│   ├── TelemetryPanel.js     // Real-time data
+│   └── GripCircle.js         // Tire grip visualization
+└── UI/
+    ├── ControlPanel.js        // User controls
+    ├── Timeline.js            // Playback controls
+    └── HUD.js                 // On-screen display
+2.2 Data Flow Architecture
+User Input → Control Panel → Simulation Controller
+                                      ↓
+                            Physics Engine (60Hz)
+                                      ↓
+                    Vehicle State Update → Force Calculation
+                                      ↓
+                            Visualization Update
+                                      ↓
+                        Renderer (60 FPS) → Display
+
+3. Physics Implementation
+3.1 Core Physics Constants
+const PHYSICS_CONFIG = {
+  gravity: 9.81,              // m/s²
+  timeStep: 1/60,            // 60Hz physics
+  maxSubSteps: 3,            // Maximum physics iterations
+  airDensity: 1.225,         // kg/m³ at sea level
+  rollingResistance: 0.015, // Coefficient
+  tireOptimalTemp: {
+    street: 50,              // °C
+    racing: 100              // °C
+  }
+};
+3.2 Vehicle Configurations
+3.2.1 Mazda RX-8 Parameters
+const RX8_CONFIG = {
+  // Mass Properties
+  mass: 1390,                    // kg
+  wheelbase: 2.700,              // m
+  trackWidth: {
+    front: 1.500,                // m
+    rear: 1.505                  // m
+  },
+  cgHeight: 0.450,               // m (center of gravity)
+  weightDistribution: {
+    front: 0.50,
+    rear: 0.50
+  },
+  
+  // Suspension
+  springRate: {
+    front: 27.5,                 // N/mm (stock)
+    rear: 20.0,                  // N/mm (stock)
+    frontRace: 78.8,             // N/mm (racing)
+    rearRace: 49.0               // N/mm (racing)
+  },
+  damperRate: {
+    bump: 3000,                  // N·s/m
+    rebound: 4500                // N·s/m
+  },
+  
+  // Tire Model (Pacejka coefficients)
+  tire: {
+    radius: 0.323,               // m
+    width: 0.245,                // m
+    peakMu: 1.15,                // Peak friction coefficient
+    loadSensitivity: 0.8,        // Load sensitivity exponent
+    pacejka: {
+      B: 10,                     // Stiffness
+      C: 1.5,                    // Shape
+      D: 1.15,                   // Peak
+      E: 0.97                    // Curvature
+    }
+  },
+  
+  // Performance Limits
+  maxSpeed: 235,                 // km/h
+  maxLateralG: 0.92,            // g (street tires)
+  maxLateralGRace: 1.03,        // g (racing tires)
+  maxBrakingG: 1.0,             // g
+  
+  // Engine
+  power: 175000,                 // W (235 HP)
+  torqueCurve: [                 // Simplified curve
+    {rpm: 3000, torque: 200},
+    {rpm: 5500, torque: 216},    // Peak torque
+    {rpm: 8500, torque: 180},
+    {rpm: 9000, torque: 160}
+  ],
+  
+  // Aerodynamics
+  dragCoefficient: 0.31,
+  frontalArea: 2.0,              // m²
+  liftCoefficient: 0.02          // Minimal lift
+};
+3.2.2 Formula 1 Parameters
+const F1_CONFIG = {
+  // Mass Properties
+  mass: 798,                      // kg (including driver)
+  wheelbase: 3.600,               // m
+  trackWidth: {
+    front: 2.000,                 // m
+    rear: 2.000                   // m
+  },
+  cgHeight: 0.280,                // m (very low CoG)
+  weightDistribution: {
+    front: 0.455,
+    rear: 0.545
+  },
+  
+  // Suspension (F1 is extremely stiff)
+  springRate: {
+    front: 200.0,                 // N/mm
+    rear: 150.0                   // N/mm
+  },
+  damperRate: {
+    bump: 8000,                   // N·s/m
+    rebound: 12000                // N·s/m
+  },
+  
+  // Tire Model (F1 specific)
+  tire: {
+    radius: 0.330,                // m
+    width: 0.305,                 // m (front)
+    rearWidth: 0.405,             // m (rear)
+    peakMu: 1.8,                  // Peak friction (hot slicks)
+    loadSensitivity: 0.7,         // Less load sensitive
+    pacejka: {
+      B: 12,                      // High stiffness
+      C: 1.8,                     // Shape
+      D: 1.8,                     // Peak factor
+      E: 0.95                     // Curvature
+    }
+  },
+  
+  // Performance Limits
+  maxSpeed: 350,                  // km/h
+  maxLateralG: 5.0,              // g (with downforce)
+  maxBrakingG: 5.5,              // g
+  maxAccelerationG: 3.5,         // g
+  
+  // Engine
+  power: 750000,                  // W (1000+ HP)
+  torqueCurve: [
+    {rpm: 8000, torque: 500},
+    {rpm: 10000, torque: 650},
+    {rpm: 12000, torque: 700},
+    {rpm: 15000, torque: 600}
+  ],
+  
+  // Aerodynamics (critical for F1)
+  dragCoefficient: 0.7,           // High drag from wings
+  frontalArea: 1.5,               // m²
+  downforceCoefficient: {
+    front: 1.5,
+    rear: 2.0
+  },
+  downforceBalance: 0.4,          // 40% front
+  groundEffectMultiplier: 1.5     // 2022+ regulations
+};
+3.3 Weight Transfer Equations
+class WeightTransfer {
+  // Lateral weight transfer (cornering)
+  calculateLateral(vehicle, lateralG) {
+    const totalWeight = vehicle.mass * PHYSICS_CONFIG.gravity;
+    const transfer = (totalWeight * lateralG * vehicle.cgHeight) / vehicle.trackWidth.front;
+    
+    return {
+      frontLeft: vehicle.weightDistribution.front * totalWeight / 2 - transfer,
+      frontRight: vehicle.weightDistribution.front * totalWeight / 2 + transfer,
+      rearLeft: vehicle.weightDistribution.rear * totalWeight / 2 - transfer,
+      rearRight: vehicle.weightDistribution.rear * totalWeight / 2 + transfer
+    };
+  }
+  
+  // Longitudinal weight transfer (braking/acceleration)
+  calculateLongitudinal(vehicle, longitudinalG) {
+    const totalWeight = vehicle.mass * PHYSICS_CONFIG.gravity;
+    const transfer = (totalWeight * longitudinalG * vehicle.cgHeight) / vehicle.wheelbase;
+    
+    return {
+      frontAxle: vehicle.weightDistribution.front * totalWeight + transfer,
+      rearAxle: vehicle.weightDistribution.rear * totalWeight - transfer
+    };
+  }
+  
+  // Combined transfer for all four wheels
+  calculateCombined(vehicle, lateralG, longitudinalG) {
+    // Calculate individual wheel loads considering both transfers
+    const totalWeight = vehicle.mass * PHYSICS_CONFIG.gravity;
+    const latTransfer = (totalWeight * lateralG * vehicle.cgHeight) / vehicle.trackWidth.front;
+    const longTransfer = (totalWeight * longitudinalG * vehicle.cgHeight) / vehicle.wheelbase;
+    
+    const staticFront = vehicle.weightDistribution.front * totalWeight;
+    const staticRear = vehicle.weightDistribution.rear * totalWeight;
+    
+    return {
+      FL: (staticFront + longTransfer) / 2 - latTransfer,
+      FR: (staticFront + longTransfer) / 2 + latTransfer,
+      RL: (staticRear - longTransfer) / 2 - latTransfer,
+      RR: (staticRear - longTransfer) / 2 + latTransfer
+    };
+  }
+}
+3.4 Tire Force Model
+class TireModel {
+  // Pacejka Magic Formula implementation
+  calculateForce(slip, load, tireConfig) {
+    // Normalize load
+    const normalizedLoad = load / (9.81 * 250); // 250kg nominal load
+    
+    // Load sensitivity (tire force doesn't scale linearly with load)
+    const loadFactor = Math.pow(normalizedLoad, tireConfig.loadSensitivity);
+    
+    // Pacejka formula
+    const B = tireConfig.pacejka.B;
+    const C = tireConfig.pacejka.C;
+    const D = tireConfig.pacejka.D * load * loadFactor;
+    const E = tireConfig.pacejka.E;
+    
+    const x = slip;
+    const y = D * Math.sin(C * Math.atan(B * x - E * (B * x - Math.atan(B * x))));
+    
+    return y;
+  }
+  
+  // Combined slip (friction circle)
+  calculateCombinedForce(slipLateral, slipLongitudinal, load, tireConfig) {
+    const maxForce = load * tireConfig.peakMu;
+    const combinedSlip = Math.sqrt(slipLateral * slipLateral + slipLongitudinal * slipLongitudinal);
+    
+    if (combinedSlip < 0.001) return { lateral: 0, longitudinal: 0 };
+    
+    const totalForce = this.calculateForce(combinedSlip, load, tireConfig);
+    const ratio = totalForce / combinedSlip;
+    
+    return {
+      lateral: slipLateral * ratio,
+      longitudinal: slipLongitudinal * ratio
+    };
+  }
+  
+  // Temperature effect on grip
+  calculateTemperatureEffect(currentTemp, optimalTemp) {
+    const tempDiff = Math.abs(currentTemp - optimalTemp);
+    const tempRange = 30; // °C range for performance dropoff
+    return Math.max(0.7, 1.0 - (tempDiff * tempDiff) / (tempRange * tempRange));
+  }
+}
+3.5 Aerodynamics Model
+class Aerodynamics {
+  calculateForces(vehicle, velocity) {
+    const v2 = velocity * velocity;
+    const q = 0.5 * PHYSICS_CONFIG.airDensity * v2; // Dynamic pressure
+    
+    // Drag force
+    const drag = q * vehicle.dragCoefficient * vehicle.frontalArea;
+    
+    // Downforce (F1 specific)
+    let downforce = { front: 0, rear: 0 };
+    if (vehicle.downforceCoefficient) {
+      const totalDownforce = q * (vehicle.downforceCoefficient.front + 
+                                  vehicle.downforceCoefficient.rear) * vehicle.frontalArea;
+      
+      // Apply ground effect multiplier for low ride heights
+      const groundEffect = velocity > 50 ? vehicle.groundEffectMultiplier : 1.0;
+      
+      downforce.front = totalDownforce * vehicle.downforceBalance * groundEffect;
+      downforce.rear = totalDownforce * (1 - vehicle.downforceBalance) * groundEffect;
+    }
+    
+    return { drag, downforce };
+  }
+}
+
+4. Track and Corner Configuration
+4.1 Corner Types
+const CORNER_TYPES = {
+  HAIRPIN: {
+    name: "Hairpin",
+    radius: 12,           // meters
+    angle: 180,           // degrees
+    entrySpeed: {
+      RX8: 45,           // km/h
+      F1: 65             // km/h
+    },
+    apexPosition: 0.65,   // 65% through corner
+    bankAngle: 0,
+    description: "Tight 180° turn like Monaco's Fairmont"
+  },
+  
+  FAST_SWEEPER: {
+    name: "Fast Sweeper",
+    radius: 130,          // meters
+    angle: 90,            // degrees
+    entrySpeed: {
+      RX8: 120,          // km/h
+      F1: 280            // km/h
+    },
+    apexPosition: 0.55,   // 55% through corner
+    bankAngle: 3,         // degrees
+    description: "High-speed corner like Suzuka's 130R"
+  },
+  
+  CHICANE: {
+    name: "S-Curve/Chicane",
+    radius: [25, -25],    // meters (left then right)
+    angle: [45, -45],     // degrees
+    entrySpeed: {
+      RX8: 80,           // km/h
+      F1: 150            // km/h
+    },
+    apexPosition: [0.5, 0.5],
+    bankAngle: 0,
+    description: "Quick direction changes like Bus Stop at Spa"
+  }
+};
+4.2 Racing Lines
+const RACING_LINES = {
+  IDEAL: {
+    name: "Ideal/Optimal",
+    apexOffset: 1.0,      // Use calculated apex
+    entryPoint: "outside",
+    exitPoint: "outside",
+    brakePoint: "normal",
+    description: "Maximizes corner radius for highest speed"
+  },
+  
+  DEFENSIVE: {
+    name: "Defensive",
+    apexOffset: 0.7,      // Earlier apex
+    entryPoint: "inside",
+    exitPoint: "middle",
+    brakePoint: "early",
+    description: "Blocks inside, sacrifices exit speed"
+  },
+  
+  OVERTAKING: {
+    name: "Aggressive/Overtaking",
+    apexOffset: 1.3,      // Later apex
+    entryPoint: "outside_late",
+    exitPoint: "outside",
+    brakePoint: "late",
+    description: "Late braking, better exit for passing"
+  }
+};
+4.3 Braking Styles
+const BRAKING_STYLES = {
+  THRESHOLD: {
+    name: "Threshold",
+    maxBrakeForce: 1.0,
+    releaseProfile: "immediate",
+    description: "Maximum braking to threshold of lock-up"
+  },
+  
+  TRAIL: {
+    name: "Trail Braking",
+    maxBrakeForce: 0.85,
+    releaseProfile: "gradual",
+    trailPercentage: 0.15,  // Maintain 15% brake in corner
+    description: "Gradual release while turning"
+  },
+  
+  EARLY: {
+    name: "Early/Safe",
+    maxBrakeForce: 0.7,
+    releaseProfile: "complete",
+    safetyMargin: 1.2,      // 20% safety margin
+    description: "Complete braking before turn-in"
+  }
+};
+
+5. Visualization System
+5.1 Force Vector Display
+class ForceVectorVisualizer {
+  constructor() {
+    this.arrowHelpers = [];
+    this.colors = {
+      lateral: 0xff0000,      // Red
+      longitudinal: 0x0000ff,  // Blue
+      vertical: 0x00ff00,      // Green
+      resultant: 0xffffff      // White
+    };
+    
+    this.scaleFactors = {
+      display: 0.001,          // Convert N to display units
+      logarithmic: true,       // Use log scale for large forces
+      minLength: 0.1,          // Minimum arrow length
+      maxLength: 5.0           // Maximum arrow length
+    };
+  }
+  
+  updateForceVectors(wheelForces) {
+    wheelForces.forEach((force, index) => {
+      const scaledForce = this.scaleForce(force);
+      
+      // Update arrow direction and length
+      this.arrowHelpers[index].setDirection(force.normalized);
+      this.arrowHelpers[index].setLength(scaledForce.magnitude);
+      
+      // Color based on force utilization
+      const utilization = force.magnitude / force.maxAvailable;
+      this.arrowHelpers[index].setColor(this.getUtilizationColor(utilization));
+    });
+  }
+  
+  scaleForce(force) {
+    if (this.scaleFactors.logarithmic) {
+      return Math.log10(force + 1) * this.scaleFactors.display;
+    }
+    return force * this.scaleFactors.display;
+  }
+}
+5.2 Weight Distribution Display
+class WeightDistributionDisplay {
+  constructor() {
+    this.wheelLoadBars = [];
+    this.centerOfGravityMarker = new THREE.Mesh();
+    this.balanceIndicator = {
+      frontRear: new THREE.Group(),
+      leftRight: new THREE.Group()
+    };
+  }
+  
+  update(wheelLoads, cgPosition) {
+    // Update wheel load bars (height represents load)
+    this.wheelLoadBars.forEach((bar, index) => {
+      const load = wheelLoads[index];
+      const height = (load / 1000) * 2; // Scale for visibility
+      bar.scale.y = height;
+      
+      // Color code by load
+      const color = this.getLoadColor(load, this.nominalLoad);
+      bar.material.color.setHex(color);
+      
+      // Update percentage text
+      const percentage = (load / this.totalWeight * 100).toFixed(1);
+      this.wheelLabels[index].text = `${percentage}%`;
+    });
+    
+    // Animate CG marker position
+    this.centerOfGravityMarker.position.lerp(cgPosition, 0.1);
+    
+    // Update balance indicators
+    this.updateBalanceIndicators(wheelLoads);
+  }
+  
+  getLoadColor(load, nominal) {
+    const ratio = load / nominal;
+    if (ratio < 0.5) return 0x0000ff;      // Blue - very light
+    if (ratio < 0.8) return 0x00ffff;      // Cyan - light
+    if (ratio < 1.2) return 0x00ff00;      // Green - optimal
+    if (ratio < 1.5) return 0xffff00;      // Yellow - heavy
+    return 0xff0000;                        // Red - overloaded
+  }
+}
+5.3 Grip Circle Visualization
+class GripCircle {
+  constructor(tirePosition) {
+    this.circle = new THREE.RingGeometry(1, 1.1, 32);
+    this.material = new THREE.MeshBasicMaterial({
+      color: 0x00ff00,
+      transparent: true,
+      opacity: 0.5
+    });
+    
+    this.utilizationVector = new THREE.ArrowHelper();
+  }
+  
+  update(lateralForce, longitudinalForce, maxForce) {
+    const utilization = Math.sqrt(lateralForce² + longitudinalForce²) / maxForce;
+    
+    // Update circle color based on utilization
+    if (utilization < 0.7) {
+      this.material.color.setHex(0x00ff00); // Green
+    } else if (utilization < 0.9) {
+      this.material.color.setHex(0xffff00); // Yellow
+    } else {
+      this.material.color.setHex(0xff0000); // Red
+    }
+    
+    // Update utilization vector
+    const angle = Math.atan2(lateralForce, longitudinalForce);
+    const length = utilization;
+    
+    this.utilizationVector.setDirection(new THREE.Vector3(
+      Math.sin(angle) * length,
+      0,
+      Math.cos(angle) * length
+    ));
+  }
+}
+
+6. User Interface Specifications
+6.1 Control Panel Layout
+const UI_CONFIG = {
+  controlPanel: {
+    position: "right",
+    width: 300,
+    sections: [
+      {
+        title: "Vehicle Selection",
+        controls: [
+          { type: "select", label: "Car", options: ["Mazda RX-8", "Formula 1"] }
+        ]
+      },
+      {
+        title: "Corner Configuration",
+        controls: [
+          { type: "select", label: "Corner Type", options: ["Hairpin", "Fast Sweeper", "Chicane"] },
+          { type: "select", label: "Racing Line", options: ["Ideal", "Defensive", "Overtaking"] },
+          { type: "select", label: "Braking Style", options: ["Threshold", "Trail", "Early"] }
+        ]
+      },
+      {
+        title: "Simulation Speed",
+        controls: [
+          { type: "slider", label: "Playback Speed", min: 0.1, max: 5.0, step: 0.1, default: 1.0 }
+        ]
+      },
+      {
+        title: "Visualization Options",
+        controls: [
+          { type: "checkbox", label: "Show Force Vectors", default: true },
+          { type: "checkbox", label: "Show Weight Distribution", default: true },
+          { type: "checkbox", label: "Show Grip Circles", default: true },
+          { type: "checkbox", label: "Show Racing Line", default: true },
+          { type: "checkbox", label: "Show Telemetry", default: true }
+        ]
+      }
+    ]
+  }
+};
+6.2 Telemetry Display
+const TELEMETRY_DISPLAY = {
+  position: "bottom-left",
+  width: 400,
+  height: 200,
+  refresh: 60, // Hz
+  
+  data: [
+    { label: "Speed", unit: "km/h", precision: 0 },
+    { label: "Lateral G", unit: "g", precision: 2 },
+    { label: "Longitudinal G", unit: "g", precision: 2 },
+    { label: "Steering Angle", unit: "°", precision: 1 },
+    { label: "Brake Pressure", unit: "%", precision: 0 },
+    { label: "Throttle", unit: "%", precision: 0 },
+    
+    // Wheel-specific data
+    { label: "FL Load", unit: "kg", precision: 0 },
+    { label: "FR Load", unit: "kg", precision: 0 },
+    { label: "RL Load", unit: "kg", precision: 0 },
+    { label: "RR Load", unit: "kg", precision: 0 },
+    
+    // Tire temps
+    { label: "FL Temp", unit: "°C", precision: 0 },
+    { label: "FR Temp", unit: "°C", precision: 0 },
+    { label: "RL Temp", unit: "°C", precision: 0 },
+    { label: "RR Temp", unit: "°C", precision: 0 }
+  ]
+};
+6.3 Timeline Control
+class TimelineControl {
+  constructor() {
+    this.duration = 30; // seconds per corner sequence
+    this.currentTime = 0;
+    this.playbackSpeed = 1.0;
+    this.isPlaying = true;
+    this.recordedData = [];
+  }
+  
+  controls = {
+    play: () => this.isPlaying = true,
+    pause: () => this.isPlaying = false,
+    restart: () => this.currentTime = 0,
+    scrub: (time) => this.currentTime = time,
+    setSpeed: (speed) => this.playbackSpeed = speed
+  };
+  
+  record(state) {
+    this.recordedData.push({
+      time: this.currentTime,
+      position: state.position.clone(),
+      rotation: state.rotation.clone(),
+      forces: { ...state.forces },
+      wheelLoads: [...state.wheelLoads],
+      telemetry: { ...state.telemetry }
+    });
+  }
+  
+  playback(time) {
+    // Interpolate between recorded frames
+    const frame = this.interpolateFrame(time);
+    return frame;
+  }
+}
+
+7. Performance Optimization
+7.1 M2 MacBook Specific Optimizations
+const M2_OPTIMIZATIONS = {
+  // Use Metal backend for WebGL
+  renderer: {
+    powerPreference: "high-performance",
+    antialias: true,
+    alpha: false,
+    depth: true,
+    stencil: false,
+    preserveDrawingBuffer: false
+  },
+  
+  // LOD settings
+  lodDistances: [50, 150, 300],
+  
+  // Texture settings
+  textureSize: 2048,
+  anisotropy: 8,
+  
+  // Shadow settings
+  shadows: {
+    enabled: true,
+    type: THREE.PCFSoftShadowMap,
+    resolution: 2048,
+    cascades: 2
+  },
+  
+  // Physics optimizations
+  physics: {
+    maxSubSteps: 3,
+    fixedTimeStep: 1/60,
+    broadphase: "SAPBroadphase",
+    solver: "GSSolver",
+    iterations: 10
+  }
+};
+7.2 Rendering Pipeline
+class RenderingPipeline {
+  constructor() {
+    this.renderer = new THREE.WebGLRenderer(M2_OPTIMIZATIONS.renderer);
+    this.composer = new THREE.EffectComposer(this.renderer);
+    
+    // Add passes for visual quality
+    this.addRenderPass();
+    this.addFXAAPass();      // Anti-aliasing
+    this.addBloomPass();     // Glow effects
+    this.addSSAOPass();      // Ambient occlusion
+  }
+  
+  optimizeForM2() {
+    // Enable GPU instancing for repeated geometry
+    this.enableInstancing();
+    
+    // Use texture atlases
+    this.createTextureAtlas();
+    
+    // Implement frustum culling
+    this.enableFrustumCulling();
+    
+    // Use level of detail
+    this.setupLOD();
+  }
+}
+
+8. Data Recording and Playback
+8.1 Session Recording
+class SessionRecorder {
+  constructor() {
+    this.buffer = new ArrayBuffer(1024 * 1024); // 1MB buffer
+    this.view = new DataView(this.buffer);
+    this.offset = 0;
+    this.frameRate = 60;
+  }
+  
+  recordFrame(state) {
+    // Efficiently pack data into binary format
+    this.view.setFloat32(this.offset, state.time);
+    this.offset += 4;
+    
+    // Position (3 floats)
+    this.view.setFloat32(this.offset, state.position.x);
+    this.offset += 4;
+    this.view.setFloat32(this.offset + 4, state.position.y);
+    this.offset += 8;
+    this.view.setFloat32(this.offset + 8, state.position.z);
+    this.offset += 12;
+    
+    // Continue for all state data...
+  }
+  
+  export() {
+    return {
+      data: this.buffer.slice(0, this.offset),
+      metadata: {
+        frameRate: this.frameRate,
+        duration: this.offset / (this.frameSize * this.frameRate),
+        vehicle: this.vehicle,
+        track: this.track
+      }
+    };
+  }
+}
+
+9. Educational Features
+9.1 Physics Explanations
+const EDUCATIONAL_CONTENT = {
+  weightTransfer: {
+    title: "Weight Transfer",
+    description: "When a car accelerates, brakes, or corners, weight shifts between wheels...",
+    formula: "ΔW = (W × a × h) / track_width",
+    visualization: "weight_distribution_display",
+    examples: [
+      "Under 1g cornering, ~27% weight transfers to outside wheels",
+      "F1 cars minimize transfer with low center of gravity"
+    ]
+  },
+  
+  trailBraking: {
+    title: "Trail Braking Technique",
+    description: "Maintaining brake pressure while turning to increase front grip...",
+    keyPoints: [
+      "Transfers weight forward for more front grip",
+      "Uses friction circle efficiently",
+      "Requires precise modulation"
+    ],
+    visualization: "grip_circle_display"
+  },
+  
+  racingLine: {
+    title: "Optimal Racing Line",
+    description: "The fastest path through a corner maximizes radius...",
+    principles: [
+      "Late apex for better exit speed",
+      "Sacrifice entry for exit on straights",
+      "Defensive line blocks inside"
+    ]
+  }
+};
+9.2 Interactive Tutorials
+const TUTORIALS = [
+  {
+    id: "weight_transfer_basics",
+    title: "Understanding Weight Transfer",
+    steps: [
+      {
+        instruction: "Watch the weight distribution as the car brakes",
+        highlight: ["weight_display"],
+        autoplay: true
+      },
+      {
+        instruction: "Notice how outside tires gain load in corners",
+        highlight: ["wheel_load_bars"],
+        corner: "fast_sweeper"
+      },
+      {
+        instruction: "Try different speeds and observe the changes",
+        interactive: true
+      }
+    ]
+  },
+  
+  {
+    id: "racing_lines_compared",
+    title: "Comparing Racing Lines",
+    steps: [
+      {
+        instruction: "Observe the ideal line through the corner",
+        racingLine: "ideal",
+        showPath: true
+      },
+      {
+        instruction: "Compare with defensive line - note early apex",
+        racingLine: "defensive",
+        showComparison: true
+      },
+      {
+        instruction: "See how overtaking line enables passing",
+        racingLine: "overtaking",
+        showAdvantages: true
+      }
+    ]
+  }
+];
+
+10. Testing and Validation
+10.1 Physics Validation Tests
+const VALIDATION_TESTS = {
+  steadyStateCorner: {
+    description: "Verify steady-state cornering matches real data",
+    vehicle: "RX8",
+    expectedLateralG: 0.92,
+    tolerance: 0.02,
+    conditions: "50m radius, optimal speed"
+  },
+  
+  brakingDistance: {
+    description: "Validate stopping distances",
+    vehicle: "RX8",
+    speed: 100, // km/h
+    expectedDistance: 36, // meters
+    tolerance: 2 // meters
+  },
+  
+  weightTransferCalculation: {
+    description: "Verify weight transfer math",
+    testCases: [
+      {
+        lateralG: 1.0,
+        expectedTransfer: 0.27, // 27% to outside
+        tolerance: 0.01
+      }
+    ]
+  }
+};
+10.2 Performance Benchmarks
+const PERFORMANCE_TARGETS = {
+  frameRate: {
+    target: 60,
+    minimum: 30,
+    measurement: "average over 10 seconds"
+  },
+  
+  physicsStepTime: {
+    target: 8, // milliseconds
+    maximum: 16.67 // must complete in one frame
+  },
+  
+  memoryUsage: {
+    target: 2048, // MB
+    maximum: 4096 // MB
+  },
+  
+  loadTime: {
+    target: 3, // seconds
+    maximum: 10 // seconds
+  }
+};
+
+11. Deployment Configuration
+11.1 Build Configuration
+// webpack.config.js
+module.exports = {
+  entry: './src/index.js',
+  output: {
+    path: path.resolve(__dirname, 'dist'),
+    filename: 'racing-sim.bundle.js'
+  },
+  module: {
+    rules: [
+      {
+        test: /\.js$/,
+        use: {
+          loader: 'babel-loader',
+          options: {
+            presets: ['@babel/preset-env'],
+            plugins: ['@babel/plugin-proposal-class-properties']
+          }
+        }
+      }
+    ]
+  },
+  optimization: {
+    usedExports: true,
+    minimizer: [new TerserPlugin({
+      terserOptions: {
+        compress: {
+          drop_console: true
+        }
+      }
+    })]
+  }
+};
+11.2 Asset Loading
+class AssetManager {
+  constructor() {
+    this.loadingManager = new THREE.LoadingManager();
+    this.textureLoader = new THREE.TextureLoader(this.loadingManager);
+    this.modelLoader = new THREE.GLTFLoader(this.loadingManager);
+  }
+  
+  async loadAssets() {
+    const assets = {
+      textures: {
+        track: await this.loadTexture('assets/textures/track.jpg'),
+        RX8: await this.loadTexture('assets/textures/rx8.jpg'),
+        F1: await this.loadTexture('assets/textures/f1.jpg')
+      },
+      models: {
+        RX8: await this.loadModel('assets/models/rx8.glb'),
+        F1: await this.loadModel('assets/models/f1.glb')
+      },
+      audio: {
+        RX8Engine: 'assets/audio/rx8_engine.mp3',
+        F1Engine: 'assets/audio/f1_engine.mp3',
+        tireSqueal: 'assets/audio/tire_squeal.mp3'
+      }
+    };
+    return assets;
+  }
+}
+
+12. Error Handling and Recovery
+class ErrorHandler {
+  constructor() {
+    this.errorLog = [];
+    this.maxErrors = 100;
+  }
+  
+  handlePhysicsError(error) {
+    console.error('Physics error:', error);
+    this.errorLog.push({
+      type: 'physics',
+      message: error.message,
+      timestamp: Date.now()
+    });
+    
+    // Reset physics state if critical
+    if (error.severity === 'critical') {
+      this.resetPhysicsState();
+    }
+  }
+  
+  handleRenderError(error) {
+    console.error('Render error:', error);
+    
+    // Fallback to lower quality settings
+    if (error.type === 'performance') {
+      this.reduceQualitySettings();
+    }
+  }
+  
+  resetPhysicsState() {
+    // Reset vehicle to safe state
+    this.vehicle.position.set(0, 1, 0);
+    this.vehicle.velocity.set(0, 0, 0);
+    this.vehicle.angularVelocity.set(0, 0, 0);
+  }
+}
+
+Appendix A: Quick Reference
+Vehicle Comparison
+Parameter
+Mazda RX-8
+Formula 1
+Weight
+1390 kg
+798 kg
+Power
+235 HP
+1000+ HP
+Max Lateral G
+0.92g (1.03g race)
+5.0g
+Max Braking G
+1.0g
+5.5g
+Top Speed
+235 km/h
+350 km/h
+Wheelbase
+2700 mm
+3600 mm
+CoG Height
+450 mm
+280 mm
+Key Physics Formulas
+Lateral Weight Transfer: ΔW = (W × Ay × h) / t
+Longitudinal Transfer: ΔWx = (W × Ax × h) / L
+Max Corner Speed: v = √(μ × g × r)
+Downforce: F = 0.5 × ρ × v² × Cd × A
+Tire Force: F = D × sin(C × atan(B×slip - E×(B×slip - atan(B×slip))))
+
+Appendix B: Development Checklist
+	•	[ ] Set up Three.js rendering pipeline
+	•	[ ] Implement Cannon.js physics integration
+	•	[ ] Create vehicle physics models
+	•	[ ] Implement tire force calculations
+	•	[ ] Build weight transfer system
+	•	[ ] Create track/corner generator
+	•	[ ] Implement racing line calculations
+	•	[ ] Build force visualization system
+	•	[ ] Create UI controls
+	•	[ ] Add telemetry display
+	•	[ ] Implement recording/playback
+	•	[ ] Optimize for M2 MacBook
+	•	[ ] Add educational content
+	•	[ ] Implement tutorials
+	•	[ ] Performance testing
+	•	[ ] User acceptance testing
+	•	[ ] Documentation
+	•	[ ] Deployment

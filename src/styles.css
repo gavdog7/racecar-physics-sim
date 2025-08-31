@@ -1,0 +1,166 @@
+/* Additional styles for dat.gui customization */
+.dg {
+    font-size: 12px !important;
+}
+
+.dg.main {
+    background: rgba(0, 0, 0, 0.8) !important;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.dg .cr {
+    background: transparent !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.dg .cr:hover {
+    background: rgba(255, 255, 255, 0.05) !important;
+}
+
+.dg .property-name {
+    color: #ccc !important;
+}
+
+.dg .c input[type=text] {
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: #fff !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+.dg .c .slider {
+    background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.dg .c .slider-fg {
+    background: #fff !important;
+}
+
+/* Stats.js styling */
+#stats {
+    position: absolute !important;
+    top: 20px !important;
+    right: 20px !important;
+}
+
+/* Grip circle canvas */
+.grip-circle-container {
+    position: absolute;
+    background: rgba(0, 0, 0, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 10px;
+    backdrop-filter: blur(10px);
+}
+
+.grip-circle-label {
+    color: #888;
+    font-size: 12px;
+    text-align: center;
+    margin-top: 5px;
+}
+
+/* Force vector legend */
+.force-legend {
+    position: absolute;
+    top: 20px;
+    right: 340px;
+    background: rgba(0, 0, 0, 0.8);
+    color: #fff;
+    padding: 15px;
+    border-radius: 8px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 12px;
+}
+
+.force-legend-item {
+    display: flex;
+    align-items: center;
+    margin: 5px 0;
+}
+
+.force-legend-color {
+    width: 20px;
+    height: 3px;
+    margin-right: 10px;
+    border-radius: 2px;
+}
+
+/* Educational overlay */
+.educational-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.95);
+    color: #fff;
+    padding: 30px;
+    border-radius: 12px;
+    max-width: 600px;
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    display: none;
+}
+
+.educational-overlay h2 {
+    margin-top: 0;
+    color: #fff;
+}
+
+.educational-overlay p {
+    line-height: 1.6;
+    color: #ccc;
+}
+
+.educational-overlay button {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 20px;
+    cursor: pointer;
+    margin-top: 20px;
+    transition: all 0.3s;
+}
+
+.educational-overlay button:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* Weight distribution visualization */
+.weight-bar {
+    position: absolute;
+    width: 40px;
+    background: linear-gradient(to top, #00ff00, #ffff00, #ff0000);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    transition: height 0.1s ease-out;
+}
+
+.weight-percentage {
+    position: absolute;
+    color: #fff;
+    font-size: 12px;
+    font-weight: bold;
+    text-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
+    width: 40px;
+    text-align: center;
+}
+
+/* Camera mode indicator */
+.camera-mode {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: #fff;
+    padding: 8px 20px;
+    border-radius: 20px;
+    font-size: 14px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}

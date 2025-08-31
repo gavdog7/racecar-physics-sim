@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Racing Physics Simulation</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #000;
+        }
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        #telemetry-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            color: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: 'Courier New', monospace;
+            min-width: 400px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        #timeline-control {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px 20px;
+            border-radius: 25px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        #timeline-control button {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        #timeline-control button:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        #loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        #loading-screen h1 {
+            color: #fff;
+            margin-bottom: 20px;
+        }
+        #loading-bar {
+            width: 300px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        #loading-progress {
+            height: 100%;
+            background: #fff;
+            width: 0;
+            transition: width 0.3s;
+        }
+        .telemetry-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 4px 0;
+        }
+        .telemetry-label {
+            color: #888;
+        }
+        .telemetry-value {
+            color: #fff;
+            font-weight: bold;
+        }
+        .wheel-loads {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .wheel-load-item {
+            text-align: center;
+        }
+        #corner-info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            color: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        #corner-info h3 {
+            margin: 0 0 10px 0;
+            color: #fff;
+        }
+        #corner-info p {
+            margin: 5px 0;
+            color: #ccc;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading-screen">
+        <h1>Racing Physics Simulation</h1>
+        <div id="loading-bar">
+            <div id="loading-progress"></div>
+        </div>
+    </div>
+    
+    <div id="canvas-container"></div>
+    
+    <div id="corner-info" style="display: none;">
+        <h3 id="corner-name">Corner Type</h3>
+        <p id="corner-description">Description</p>
+        <p id="racing-line-info">Racing Line</p>
+    </div>
+    
+    <div id="telemetry-panel" style="display: none;">
+        <div class="telemetry-row">
+            <span class="telemetry-label">Speed:</span>
+            <span class="telemetry-value" id="speed">0 km/h</span>
+        </div>
+        <div class="telemetry-row">
+            <span class="telemetry-label">Lateral G:</span>
+            <span class="telemetry-value" id="lateral-g">0.00 g</span>
+        </div>
+        <div class="telemetry-row">
+            <span class="telemetry-label">Long. G:</span>
+            <span class="telemetry-value" id="long-g">0.00 g</span>
+        </div>
+        <div class="telemetry-row">
+            <span class="telemetry-label">Steering:</span>
+            <span class="telemetry-value" id="steering">0.0°</span>
+        </div>
+        <div class="telemetry-row">
+            <span class="telemetry-label">Brake:</span>
+            <span class="telemetry-value" id="brake">0%</span>
+        </div>
+        <div class="telemetry-row">
+            <span class="telemetry-label">Throttle:</span>
+            <span class="telemetry-value" id="throttle">0%</span>
+        </div>
+        <div class="wheel-loads">
+            <div class="wheel-load-item">
+                <div class="telemetry-label">FL</div>
+                <div class="telemetry-value" id="fl-load">0 kg</div>
+            </div>
+            <div class="wheel-load-item">
+                <div class="telemetry-label">FR</div>
+                <div class="telemetry-value" id="fr-load">0 kg</div>
+            </div>
+            <div class="wheel-load-item">
+                <div class="telemetry-label">RL</div>
+                <div class="telemetry-value" id="rl-load">0 kg</div>
+            </div>
+            <div class="wheel-load-item">
+                <div class="telemetry-label">RR</div>
+                <div class="telemetry-value" id="rr-load">0 kg</div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="timeline-control" style="display: none;">
+        <button id="play-pause">Pause</button>
+        <button id="restart">Restart</button>
+        <input type="range" id="timeline-scrubber" min="0" max="100" value="0" style="width: 200px;">
+        <span id="time-display" style="color: #fff; font-family: monospace;">0.0s</span>
+    </div>
+</body>
+</html>
