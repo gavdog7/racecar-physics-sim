@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import * as CANNON from 'cannon-es';
 import { PHYSICS_CONFIG } from '../Core/PhysicsEngine.js';
 
 export class VehicleDynamics {
@@ -290,23 +291,28 @@ export class VehicleDynamics {
   
   applyAerodynamicForces(forces) {
     const velocity = this.body.velocity;
-    const velocityNormalized = velocity.clone().normalize();
+    const velocityMag = velocity.length();
+    if (velocityMag < 0.1) return;
+    
+    const velocityNormalized = velocity.clone();
+    velocityNormalized.scale(1 / velocityMag);
     
     // Apply drag
-    const dragForce = velocityNormalized.scale(-forces.drag);
-    this.body.applyForce(dragForce);
+    const dragForce = velocityNormalized.clone();
+    dragForce.scale(-forces.drag);
+    this.body.applyForce(dragForce, this.body.position);
     
     // Apply downforce
     if (this.config.downforceCoefficient) {
       // Front downforce
-      const frontPoint = new THREE.Vector3(0, 0, this.config.wheelbase / 2);
-      const frontDownforceVec = new THREE.Vector3(0, -forces.frontDownforce, 0);
-      this.body.applyLocalForce(frontDownforceVec, frontPoint);
+      const frontPoint = new CANNON.Vec3(0, 0, this.config.wheelbase / 2);
+      const frontDownforceVec = new CANNON.Vec3(0, -forces.frontDownforce, 0);
+      this.body.applyForce(frontDownforceVec, this.body.position.vadd(frontPoint));
       
       // Rear downforce
-      const rearPoint = new THREE.Vector3(0, 0, -this.config.wheelbase / 2);
-      const rearDownforceVec = new THREE.Vector3(0, -forces.rearDownforce, 0);
-      this.body.applyLocalForce(rearDownforceVec, rearPoint);
+      const rearPoint = new CANNON.Vec3(0, 0, -this.config.wheelbase / 2);
+      const rearDownforceVec = new CANNON.Vec3(0, -forces.rearDownforce, 0);
+      this.body.applyForce(rearDownforceVec, this.body.position.vadd(rearPoint));
     }
   }
   
@@ -337,7 +343,12 @@ export class VehicleDynamics {
   
   updateTelemetry(deltaTime) {
     // Calculate G-forces
-    const acceleration = this.body.force.clone().scale(1 / this.config.mass);
+    const force = this.body.force;
+    const acceleration = new CANNON.Vec3(
+      force.x / this.config.mass,
+      force.y / this.config.mass,
+      force.z / this.config.mass
+    );
     this.state.lateralG = acceleration.x / PHYSICS_CONFIG.gravity;
     this.state.longitudinalG = acceleration.z / PHYSICS_CONFIG.gravity;
     
@@ -390,7 +401,9 @@ export class VehicleDynamics {
     // Reset wheels
     this.wheels.forEach((wheel, index) => {
       const wheelPos = this.body.position.clone();
-      wheelPos.add(wheel.position);
+      wheelPos.x += wheel.position.x;
+      wheelPos.y += wheel.position.y;
+      wheelPos.z += wheel.position.z;
       wheel.body.position.copy(wheelPos);
       wheel.body.velocity.set(0, 0, 0);
       wheel.body.angularVelocity.set(0, 0, 0);
@@ -405,11 +418,11 @@ export class VehicleDynamics {
   }
   
   getPosition() {
-    return this.body.position.clone();
+    return new THREE.Vector3(this.body.position.x, this.body.position.y, this.body.position.z);
   }
   
   getRotation() {
-    return this.body.quaternion.clone();
+    return new THREE.Quaternion(this.body.quaternion.x, this.body.quaternion.y, this.body.quaternion.z, this.body.quaternion.w);
   }
   
   getState() {

@@ -191,7 +191,7 @@ export class PhysicsEngine {
       
       // Transform to world coordinates based on vehicle orientation
       const quaternion = vehicle.body.quaternion;
-      worldForce.applyQuaternion(quaternion.x, quaternion.y, quaternion.z, quaternion.w);
+      quaternion.vmult(worldForce, worldForce);
       
       // Apply force to wheel body
       wheel.body.applyForce(worldForce, worldPoint);
