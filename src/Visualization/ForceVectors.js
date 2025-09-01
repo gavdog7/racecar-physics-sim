@@ -74,21 +74,28 @@ export class ForceVectorVisualizer {
   }
   
   updateForceVectors(vehicle, forces) {
+    // Get vehicle position safely
+    const vehiclePosition = vehicle.getPosition ? vehicle.getPosition() : new THREE.Vector3(0, 0, 0);
+    
     // Update wheel forces
     if (this.visibility.wheelForces && forces.wheels) {
       forces.wheels.forEach((wheelForce, index) => {
-        this.updateWheelForce(index, wheelForce, vehicle.wheels[index].position);
+        // Use wheel position if available, otherwise use vehicle position with offset
+        const wheelPos = vehicle.wheels && vehicle.wheels[index] && vehicle.wheels[index].position 
+          ? vehicle.wheels[index].position 
+          : vehiclePosition.clone().add(new THREE.Vector3(index % 2 === 0 ? -1 : 1, 0, index < 2 ? 1 : -1));
+        this.updateWheelForce(index, wheelForce, wheelPos);
       });
     }
     
     // Update aerodynamic forces
     if (this.visibility.aeroForces && forces.aero) {
-      this.updateAeroForces(forces.aero, vehicle.position);
+      this.updateAeroForces(forces.aero, vehiclePosition);
     }
     
     // Update total forces
     if (forces.total) {
-      this.updateTotalForces(forces.total, vehicle.position);
+      this.updateTotalForces(forces.total, vehiclePosition);
     }
   }
   

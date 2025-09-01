@@ -1,4 +1,4 @@
-import GUI from 'dat.gui';
+import { GUI } from 'dat.gui';
 import { CORNER_TYPES } from '../Track/CornerGenerator.js';
 import { RACING_LINES, BRAKING_STYLES } from '../Track/RacingLine.js';
 

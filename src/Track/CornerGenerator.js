@@ -344,7 +344,7 @@ export class CornerGenerator {
       for (let i = 0; i <= segments; i++) {
         const t = i / segments;
         const x = t * 100 - 50;
-        const y = Math.sin(t * Math.PI) * 5 * (lineType === 'ideal' ? 1 : 0.7);
+        const y = Math.sin(t * Math.PI) * 5 * (lineType && lineType.toLowerCase() === 'ideal' ? 1 : 0.7);
         points.push(new THREE.Vector3(x, 0, y));
       }
     } else {
@@ -390,7 +390,9 @@ export class CornerGenerator {
   }
   
   getRacingLineColor(lineType) {
-    switch (lineType) {
+    // Convert to lowercase to handle both cases
+    const normalizedLineType = lineType ? lineType.toLowerCase() : 'ideal';
+    switch (normalizedLineType) {
       case 'ideal': return 0x00ff00;
       case 'defensive': return 0xffff00;
       case 'overtaking': return 0xff00ff;
@@ -399,7 +401,9 @@ export class CornerGenerator {
   }
   
   getApexPositionForLine(baseApex, lineType) {
-    switch (lineType) {
+    // Convert to lowercase to handle both cases
+    const normalizedLineType = lineType ? lineType.toLowerCase() : 'ideal';
+    switch (normalizedLineType) {
       case 'ideal': return baseApex;
       case 'defensive': return baseApex * 0.7;
       case 'overtaking': return baseApex * 1.3;
@@ -408,7 +412,9 @@ export class CornerGenerator {
   }
   
   getLineRadius(baseRadius, lineType) {
-    switch (lineType) {
+    // Convert to lowercase to handle both cases
+    const normalizedLineType = lineType ? lineType.toLowerCase() : 'ideal';
+    switch (normalizedLineType) {
       case 'ideal': return baseRadius;
       case 'defensive': return baseRadius * 0.85;
       case 'overtaking': return baseRadius * 1.1;
@@ -423,7 +429,9 @@ export class CornerGenerator {
       overtaking: { entry: -5, apex: -2, exit: -5 }
     };
     
-    return offsets[lineType][phase] || 0;
+    // Convert to lowercase to handle both cases
+    const normalizedLineType = lineType ? lineType.toLowerCase() : 'ideal';
+    return offsets[normalizedLineType] && offsets[normalizedLineType][phase] || 0;
   }
   
   getEntryPoint(config) {
