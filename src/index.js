@@ -1,6 +1,7 @@
 import './styles.css';
 import Stats from 'stats.js';
 import { RacingSimulation } from './RacingSimulation.js';
+import { debugLog } from './debug.js';
 
 // Show loading screen
 const loadingScreen = document.getElementById('loading-screen');
@@ -16,6 +17,7 @@ function updateProgress(amount) {
 // Initialize simulation
 async function init() {
   try {
+    debugLog('Main', 'Starting initialization');
     updateProgress(10);
     
     // Performance monitoring
@@ -32,11 +34,13 @@ async function init() {
     updateProgress(30);
     
     // Create simulation
+    debugLog('Main', 'Creating RacingSimulation instance');
     const simulation = new RacingSimulation(container);
     
     updateProgress(50);
     
     // Initialize simulation
+    debugLog('Main', 'Initializing simulation');
     await simulation.init((progressPercent) => {
       updateProgress(progressPercent * 0.5); // Use remaining 50% for simulation init
     });
@@ -75,6 +79,7 @@ async function init() {
     
   } catch (error) {
     console.error('Failed to initialize simulation:', error);
+    debugLog('Main', 'Initialization failed', error);
     
     // Show error message
     loadingScreen.innerHTML = `

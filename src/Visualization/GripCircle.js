@@ -10,11 +10,10 @@ export class GripCircle {
     this.radius = 100; // pixels
     this.maxForce = 10000; // N, will be updated based on tire
     
-    // Canvas for 2D rendering
-    this.canvas = document.createElement('canvas');
-    this.canvas.width = this.radius * 2 + 40;
-    this.canvas.height = this.radius * 2 + 40;
-    this.ctx = this.canvas.getContext('2d');
+    // Canvas will be created when needed
+    this.canvas = null;
+    this.ctx = null;
+    this.initialized = false;
     
     // Current force state
     this.currentForces = {
@@ -23,10 +22,21 @@ export class GripCircle {
       maximum: 0,
       utilization: 0
     };
+  }
+  
+  init() {
+    if (this.initialized || typeof document === 'undefined') return;
+    
+    // Canvas for 2D rendering
+    this.canvas = document.createElement('canvas');
+    this.canvas.width = this.radius * 2 + 40;
+    this.canvas.height = this.radius * 2 + 40;
+    this.ctx = this.canvas.getContext('2d');
     
     // Visual elements
     this.setupCanvas();
     this.addToContainer();
+    this.initialized = true;
   }
   
   setupCanvas() {
@@ -65,6 +75,8 @@ export class GripCircle {
   }
   
   update(lateralForce, longitudinalForce, maxForce, temperature = 20, utilization = 0) {
+    if (!this.initialized) this.init();
+    
     this.currentForces.lateral = lateralForce;
     this.currentForces.longitudinal = longitudinalForce;
     this.currentForces.maximum = maxForce;
@@ -76,6 +88,8 @@ export class GripCircle {
   }
   
   draw(temperature) {
+    if (!this.ctx) return;
+    
     const ctx = this.ctx;
     const centerX = this.canvas.width / 2;
     const centerY = this.canvas.height / 2;
@@ -317,18 +331,23 @@ export class GripCircleManager {
   constructor() {
     this.circles = [];
     this.wheelNames = ['FL', 'FR', 'RL', 'RR'];
-    
-    this.initializeCircles();
+    this.initialized = false;
   }
   
   initializeCircles() {
+    if (this.initialized) return;
+    
     this.wheelNames.forEach((name, index) => {
       const circle = new GripCircle(null, name);
       this.circles.push(circle);
     });
+    
+    this.initialized = true;
   }
   
   updateAll(wheelForces, wheelTemperatures) {
+    if (!this.initialized) this.initializeCircles();
+    
     this.circles.forEach((circle, index) => {
       const force = wheelForces[index];
       const temp = wheelTemperatures[index];

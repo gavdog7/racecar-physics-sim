@@ -14,6 +14,7 @@ import { ControlPanel } from './UI/ControlPanel.js';
 import { TelemetryPanel } from './UI/TelemetryPanel.js';
 import { RX8_CONFIG } from './Vehicles/RX8Config.js';
 import { F1_CONFIG } from './Vehicles/F1Config.js';
+import { debugLog } from './debug.js';
 
 export class RacingSimulation {
   constructor(container) {
@@ -61,11 +62,15 @@ export class RacingSimulation {
   
   async init(progressCallback) {
     try {
+      debugLog('RacingSimulation', 'Starting init');
+      
       // Initialize renderer
+      debugLog('RacingSimulation', 'Creating renderer');
       this.renderer = new Renderer(this.container);
       progressCallback?.(10);
       
       // Initialize physics
+      debugLog('RacingSimulation', 'Creating physics engine');
       this.physics = new PhysicsEngine();
       this.physics.createGround();
       progressCallback?.(20);
@@ -75,10 +80,12 @@ export class RacingSimulation {
       progressCallback?.(30);
       
       // Create initial vehicle
+      debugLog('RacingSimulation', 'Creating vehicle', this.currentVehicleType);
       await this.createVehicle(this.currentVehicleType);
       progressCallback?.(40);
       
       // Create initial track
+      debugLog('RacingSimulation', 'Creating track', this.currentCornerType);
       await this.createTrack(this.currentCornerType);
       progressCallback?.(50);
       
