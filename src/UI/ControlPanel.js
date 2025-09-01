@@ -5,10 +5,7 @@ import { RACING_LINES, BRAKING_STYLES } from '../Track/RacingLine.js';
 export class ControlPanel {
   constructor(simulation) {
     this.simulation = simulation;
-    this.gui = new GUI({ width: 300 });
-    this.gui.domElement.style.position = 'absolute';
-    this.gui.domElement.style.top = '20px';
-    this.gui.domElement.style.right = '20px';
+    this.initialized = false;
     
     // Control state
     this.controls = {
@@ -44,9 +41,19 @@ export class ControlPanel {
       showExplanations: false,
       tutorialMode: false
     };
+  }
+  
+  init() {
+    if (this.initialized) return;
+    
+    this.gui = new GUI({ width: 300 });
+    this.gui.domElement.style.position = 'absolute';
+    this.gui.domElement.style.top = '20px';
+    this.gui.domElement.style.right = '20px';
     
     this.setupGUI();
     this.bindEvents();
+    this.initialized = true;
   }
   
   setupGUI() {
@@ -266,6 +273,8 @@ export class ControlPanel {
   }
   
   updateCornerInfo() {
+    if (!this.initialized) return;
+    
     const cornerInfo = document.getElementById('corner-info');
     const cornerName = document.getElementById('corner-name');
     const cornerDescription = document.getElementById('corner-description');
@@ -284,6 +293,8 @@ export class ControlPanel {
   }
   
   updatePlayButton() {
+    if (!this.initialized) return;
+    
     const playButton = document.getElementById('play-pause');
     if (playButton) {
       playButton.textContent = this.controls.paused ? 'Play' : 'Pause';
@@ -291,6 +302,8 @@ export class ControlPanel {
   }
   
   updateCameraModeDisplay(mode) {
+    if (!this.initialized) return;
+    
     let cameraDisplay = document.querySelector('.camera-mode');
     if (!cameraDisplay) {
       cameraDisplay = document.createElement('div');
@@ -412,6 +425,8 @@ export class ControlPanel {
   }
   
   showMessage(message, duration = 3000) {
+    if (!this.initialized) return;
+    
     // Create temporary message overlay
     const messageDiv = document.createElement('div');
     messageDiv.style.position = 'absolute';
@@ -439,6 +454,8 @@ export class ControlPanel {
   }
   
   showEducationalContent(topic) {
+    if (!this.initialized) return;
+    
     // Display educational overlay with physics explanations
     const overlay = document.createElement('div');
     overlay.className = 'educational-overlay';

@@ -1,8 +1,26 @@
 export class TelemetryPanel {
   constructor() {
-    this.panel = document.getElementById('telemetry-panel');
+    this.panel = null;
+    this.elements = {};
     this.refreshRate = 60; // Hz
     this.lastUpdate = 0;
+    this.initialized = false;
+    
+    // Data history for graphs
+    this.dataHistory = {
+      speed: [],
+      lateralG: [],
+      longG: [],
+      maxLength: 300 // 5 seconds at 60fps
+    };
+    
+    this.visible = false;
+  }
+  
+  init() {
+    if (this.initialized) return;
+    
+    this.panel = document.getElementById('telemetry-panel');
     
     // Data elements
     this.elements = {
@@ -18,18 +36,12 @@ export class TelemetryPanel {
       rrLoad: document.getElementById('rr-load')
     };
     
-    // Data history for graphs
-    this.dataHistory = {
-      speed: [],
-      lateralG: [],
-      longG: [],
-      maxLength: 300 // 5 seconds at 60fps
-    };
-    
-    this.visible = false;
+    this.initialized = true;
   }
   
   update(vehicleState, currentTime) {
+    if (!this.initialized) this.init();
+    
     // Throttle updates to refresh rate
     if (currentTime - this.lastUpdate < 1000 / this.refreshRate) {
       return;

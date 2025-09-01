@@ -17,6 +17,8 @@ export class WeightDistributionDisplay {
     this.wheelLabels = [];
     this.nominalLoad = 0;
     this.totalWeight = 0;
+    this.percentageDisplay = null;
+    this.initialized = false;
     
     this.maxBarHeight = 3; // meters
     this.barWidth = 0.8;
@@ -140,6 +142,8 @@ export class WeightDistributionDisplay {
   }
   
   createPercentageDisplay() {
+    if (typeof document === 'undefined') return;
+    
     // Create HTML elements for percentages
     const container = document.createElement('div');
     container.style.position = 'absolute';
@@ -172,6 +176,7 @@ export class WeightDistributionDisplay {
     
     document.body.appendChild(container);
     this.percentageDisplay = container;
+    this.initialized = true;
   }
   
   update(wheelLoads, cgPosition, totalWeight, balancePoint) {
@@ -223,7 +228,7 @@ export class WeightDistributionDisplay {
   }
   
   updatePercentageDisplay(wheelLoads, totalWeight) {
-    if (!this.percentageDisplay || totalWeight === 0) return;
+    if (!this.initialized || !this.percentageDisplay || totalWeight === 0) return;
     
     const percentages = {
       fl: (wheelLoads[0] / totalWeight * 100).toFixed(1),
@@ -324,6 +329,8 @@ export class WeightDistributionDisplay {
   }
   
   createLoadGradient() {
+    if (typeof document === 'undefined') return null;
+    
     // Create a visual gradient showing load scale
     const canvas = document.createElement('canvas');
     canvas.width = 256;

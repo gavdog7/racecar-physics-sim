@@ -88,7 +88,7 @@ export class RacingSimulation {
       this.gripCircles = new GripCircleManager();
       progressCallback?.(60);
       
-      // Initialize UI
+      // Initialize UI (defer DOM access)
       this.controlPanel = new ControlPanel(this);
       this.telemetryPanel = new TelemetryPanel();
       progressCallback?.(70);
@@ -103,6 +103,10 @@ export class RacingSimulation {
       
       // Final setup
       this.setupInitialState();
+      
+      // Initialize UI DOM elements after everything else is ready
+      this.controlPanel.init();
+      this.telemetryPanel.init();
       progressCallback?.(100);
       
       console.log('Racing simulation initialized successfully');
