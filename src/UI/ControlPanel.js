@@ -1,4 +1,4 @@
-import { GUI } from 'dat.gui';
+import GUI from 'dat.gui';
 import { CORNER_TYPES } from '../Track/CornerGenerator.js';
 import { RACING_LINES, BRAKING_STYLES } from '../Track/RacingLine.js';
 
@@ -245,7 +245,15 @@ export class ControlPanel {
   
   updateVehicleSpecificControls(vehicle) {
     // Clear existing vehicle controls
-    this.vehicleFolder.destroyGUIContainer();
+    if (this.vehicleFolder) {
+      // Remove all controllers from the folder
+      while (this.vehicleFolder.__controllers.length > 0) {
+        this.vehicleFolder.remove(this.vehicleFolder.__controllers[0]);
+      }
+      // Close and hide the old folder
+      this.vehicleFolder.close();
+      this.vehicleFolder.domElement.style.display = 'none';
+    }
     this.vehicleFolder = this.gui.addFolder('Vehicle Settings');
     
     // Add vehicle-specific controls based on type

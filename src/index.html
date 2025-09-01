@@ -132,6 +132,22 @@
             color: #ccc;
         }
     </style>
+    <script>
+        // Capture all errors for debugging
+        window.addEventListener('error', function(e) {
+            console.error('Window error event:', {
+                message: e.message,
+                source: e.filename,
+                line: e.lineno,
+                column: e.colno,
+                error: e.error
+            });
+        });
+        
+        window.addEventListener('unhandledrejection', function(e) {
+            console.error('Unhandled promise rejection:', e.reason);
+        });
+    </script>
 </head>
 <body>
     <div id="loading-screen">
