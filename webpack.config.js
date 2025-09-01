@@ -16,6 +16,13 @@ export default (env, argv) => {
       filename: 'racing-sim.bundle.js',
       clean: true
     },
+    resolve: {
+      extensions: ['.js', '.json'],
+      alias: {
+        'dat.gui': path.resolve(__dirname, 'node_modules/dat.gui/build/dat.gui.module.js'),
+        'stats.js': path.resolve(__dirname, 'node_modules/stats.js/build/stats.min.js')
+      }
+    },
     module: {
       rules: [
         {
